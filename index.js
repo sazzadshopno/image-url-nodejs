@@ -65,7 +65,13 @@ app.post("/api/image/", (req, res) => {
   upload(req, res, (err) => {
     if (err) {
       res.json({ success: 0, message: err });
-    } else if (req.files.length > 0) {
+    } else if (req.body.postId == undefined && req.files.length == 0) {
+      res.json({ success: 0, message: "postId and File not provided" });
+    } else if (req.body.postId == undefined) {
+      res.json({ success: 0, message: "postId not provided" });
+    } else if (req.files.length == 0) {
+      res.json({ success: 0, message: "File not provided" });
+    } else {
       const filename = req.files[0].filename,
         dest = req.files[0].destination.replace("public", "");
       const url = `${req.headers.host}${dest}${filename}`;
@@ -76,8 +82,6 @@ app.post("/api/image/", (req, res) => {
           nsfw: false,
         },
       });
-    } else {
-      res.json({ success: 0, message: "File not provided" });
     }
   });
 });
