@@ -76,7 +76,7 @@ app.post("/api/image/", (req, res) => {
     } else {
       const filename = req.files[0].filename,
         dest = req.files[0].destination.replace("public", "");
-      const url = `${req.headers.host}${dest}${filename}`;
+      const url = `https://${req.headers.host}${dest}${filename}`;
       res.json({
         success: 1,
         file: {
