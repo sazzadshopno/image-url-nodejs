@@ -2,11 +2,12 @@ import express from "express";
 import fs from "fs";
 import path from "path";
 import multer from "multer";
-
+import cors from "cors";
 //Variable
 const app = express();
 const PORT = process.env.PORT || 5000;
 
+app.use(cors());
 // serving static file
 app.use(express.static("public"));
 // Establish mongoDB connection
@@ -58,6 +59,7 @@ const upload = multer({
 }).any();
 
 app.get("/api/image/", (req, res) => {
+  res.re;
   res.json({ message: "Hmm" });
 });
 
