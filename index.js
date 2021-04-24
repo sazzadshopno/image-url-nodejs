@@ -3,9 +3,12 @@ import fs from "fs";
 import path from "path";
 import multer from "multer";
 import cors from "cors";
+import sizeOf from "image-size";
+import sharp from "sharp";
+import e from "express";
 //Variable
 const app = express();
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 // serving static file
@@ -50,7 +53,7 @@ const storage = multer.diskStorage({
     cb(null, filePath);
   },
   filename: (req, file, cb) => {
-    cb(null, file.originalname);
+    cb(null, file.originalname.split(" ").join("-"));
   },
 });
 
@@ -63,7 +66,7 @@ app.get("/api/image/", (req, res) => {
   res.json({ message: "Hmm" });
 });
 
-app.post("/api/image/", (req, res) => {
+app.post("/api/image/", async (req, res) => {
   upload(req, res, (err) => {
     if (err) {
       res.json({ success: 0, message: err });
@@ -76,7 +79,43 @@ app.post("/api/image/", (req, res) => {
     } else {
       const filename = req.files[0].filename,
         dest = req.files[0].destination.replace("public", "");
-      const url = `https://${req.headers.host}${dest}${filename}`;
+      const dimension = sizeOf(req.files[0].destination + filename);
+      console.log(req.files[0]);
+      const maxWidth = 1920,
+        maxHeight = 1080;
+      let ratio = 0,
+        width = dimension.width,
+        height = dimension.height;
+      if (width > maxWidth) {
+        ratio = maxWidth / width;
+        height = parseInt(height * ratio);
+        width = parseInt(width * ratio);
+      }
+      if (height > maxHeight) {
+        ratio = maxHeight / height;
+        width = parseInt(width * ratio);
+        height = parseInt(height * ratio);
+      }
+      const newFileName = `${width}x${height}-${filename}`;
+      if (req.files[0].mimetpe == "image/png") {
+        sharp(req.files[0].path)
+          .resize(width, height)
+          .png({ quality: 30 })
+          .toFile(path.resolve(req.files[0].destination, newFileName))
+          .then(() => {
+            fs.unlinkSync(req.files[0].path);
+          });
+      } else {
+        sharp(req.files[0].path)
+          .resize(width, height)
+          .jpeg({ quality: 30 })
+          .toFile(path.resolve(req.files[0].destination, newFileName))
+          .then(() => {
+            fs.unlinkSync(req.files[0].path);
+          });
+      }
+
+      const url = `https://${req.headers.host}${dest}${newFileName}`;
       res.json({
         success: 1,
         file: {
