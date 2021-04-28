@@ -5,15 +5,48 @@ import multer from "multer";
 import cors from "cors";
 import sizeOf from "image-size";
 import sharp from "sharp";
-import e from "express";
+import * as admin from "firebase-admin";
+import firebase from "firebase";
+import "firebase/storage";
+import XMLHttpRequest from "xhr2";
+
 //Variable
+global.XMLHttpRequest = XMLHttpRequest;
+require("dotenv").config();
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 5000;
+
+const firebaseConfig = {
+  apiKey: process.env.FB_APIKEY,
+  authDomain: process.env.FB_AUTH_DOMAIN,
+  databaseURL: process.env.FB_DATABASE_URL,
+  projectId: process.env.FB_PROJECT_ID,
+  storageBucket: process.env.FB_STORAGE_BUCKET,
+  messagingSenderId: process.env.FB_MESSAGING_SENDER_ID,
+  appId: process.env.FB_APP_ID,
+  measurementId: process.env.FB_MEASUREMENT_ID,
+};
+firebase.initializeApp(firebaseConfig);
+
+admin.initializeApp({
+  credential: admin.credential.cert({
+    type: process.env.FB_TYPE,
+    project_id: process.env.FB_PROJECT_ID,
+    private_key_id: process.env.FB_PRIVATE_KEY_ID,
+    private_key: process.env.FB_PRIVATE_KEY,
+    client_email: process.env.FB_CLIENT_EMAIL,
+    client_id: process.env.FB_CLIENT_ID,
+    auth_uri: process.env.FB_AUTH_URI,
+    token_uri: process.env.FB_TOKEN_URI,
+    auth_provider_x509_cert_url: process.env.FB_AUTH_PROVIDER,
+    client_x509_cert_url: process.env.FB_CERT_URL,
+  }),
+  storageBucket: process.env.FB_STORAGE_BUCKET,
+});
 
 app.use(cors());
 // serving static file
 app.use(express.static("public"));
-// Establish mongoDB connection
 
 app.use(
   express.urlencoded({
@@ -26,31 +59,10 @@ app.use(express.json({ limit: "5mb" }));
 
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    const postId = req.body.postId;
-    const rootPath = path.resolve("./");
-    const publicPath = "public";
-    const uploadPath = "uploads";
-    const postPath = `uploads/${postId}`;
-    const filePath = `${publicPath}/${postPath}/`;
-    // Create Public directory if doesnt exist
-    if (!fs.existsSync(`${rootPath}/${publicPath}/`)) {
-      fs.mkdirSync(`${rootPath}/${publicPath}/`);
+    if (!fs.existsSync("public/")) {
+      fs.mkdirSync("public/");
     }
-    // --------------------------------------
-
-    // Create public/uploads directory if doesnt exist
-    if (!fs.existsSync(`${rootPath}/${publicPath}/${uploadPath}/`)) {
-      fs.mkdirSync(`${rootPath}/${publicPath}/${uploadPath}/`);
-    }
-    // --------------------------------------
-
-    // Create public/uploads/postId directory if doesnt exist
-    if (!fs.existsSync(`${rootPath}/${publicPath}/${uploadPath}/${postId}/`)) {
-      fs.mkdirSync(`${rootPath}/${publicPath}/${uploadPath}/${postId}/`);
-    }
-    // --------------------------------------
-
-    cb(null, filePath);
+    cb(null, "./public/");
   },
   filename: (req, file, cb) => {
     cb(null, file.originalname.split(" ").join("-"));
@@ -61,12 +73,28 @@ const upload = multer({
   storage: storage,
 }).any();
 
-app.get("/api/image/", (req, res) => {
-  res.re;
-  res.json({ message: "Hmm" });
-});
+const authenticate = async (req, res, next) => {
+  if (
+    !req.headers.authorization ||
+    !req.headers.authorization.startsWith("Bearer ")
+  ) {
+    res.status(403).send("Unauthorized");
+    return;
+  }
+  const idToken = req.headers.authorization.split("Bearer ")[1];
+  try {
+    const decodedIdToken = await admin.auth().verifyIdToken(idToken);
+    req.user = decodedIdToken;
+    req.auth = decodedIdToken;
+    next();
+    return;
+  } catch (e) {
+    res.status(403).send("Unauthorized");
+    return;
+  }
+};
 
-app.post("/api/image/", async (req, res) => {
+app.post("/api/image/", (req, res) => {
   upload(req, res, (err) => {
     if (err) {
       res.json({ success: 0, message: err });
@@ -77,12 +105,10 @@ app.post("/api/image/", async (req, res) => {
     } else if (req.files.length == 0) {
       res.json({ success: 0, message: "File not provided" });
     } else {
-      const filename = req.files[0].filename,
-        dest = req.files[0].destination.replace("public", "");
-      const dimension = sizeOf(req.files[0].destination + filename);
-      console.log(req.files[0]);
-      const maxWidth = 1920,
-        maxHeight = 1080;
+      const filename = req.files[0].filename;
+      const dimension = sizeOf(req.files[0].path);
+      const maxWidth = 1280,
+        maxHeight = 720;
       let ratio = 0,
         width = dimension.width,
         height = dimension.height;
@@ -97,32 +123,40 @@ app.post("/api/image/", async (req, res) => {
         height = parseInt(height * ratio);
       }
       const newFileName = `${width}x${height}-${filename}`;
-      if (req.files[0].mimetpe == "image/png") {
-        sharp(req.files[0].path)
-          .resize(width, height)
-          .png({ quality: 30 })
-          .toFile(path.resolve(req.files[0].destination, newFileName))
-          .then(() => {
-            fs.unlinkSync(req.files[0].path);
-          });
-      } else {
-        sharp(req.files[0].path)
-          .resize(width, height)
-          .jpeg({ quality: 30 })
-          .toFile(path.resolve(req.files[0].destination, newFileName))
-          .then(() => {
-            fs.unlinkSync(req.files[0].path);
-          });
-      }
-
-      const url = `https://${req.headers.host}${dest}${newFileName}`;
-      res.json({
-        success: 1,
-        file: {
-          url: url,
-          nsfw: false,
-        },
-      });
+      sharp(req.files[0].path)
+        .resize(width, height)
+        .jpeg({ quality: 30 })
+        .toFile(path.resolve(req.files[0].destination, newFileName))
+        .then(() => {
+          firebase
+            .auth()
+            .signInWithEmailAndPassword(
+              process.env.FB_USERNAME,
+              process.env.FB_PASSWORD
+            )
+            .then((user) => {
+              const file = fs.readFileSync(`public/${newFileName}`);
+              firebase
+                .storage()
+                .ref()
+                .child(`${req.body.postId}/${newFileName}`)
+                .put(file)
+                .then((f) => {
+                  f.ref.getDownloadURL().then((url) => {
+                    res.json({
+                      success: 1,
+                      file: {
+                        url: url,
+                        nsfw: false,
+                      },
+                    });
+                  });
+                })
+                .catch((err) => {
+                  res.json({ err });
+                });
+            });
+        });
     }
   });
 });
