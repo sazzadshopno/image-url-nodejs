@@ -9,7 +9,7 @@ import * as admin from "firebase-admin";
 import firebase from "firebase";
 import "firebase/storage";
 import XMLHttpRequest from "xhr2";
-
+import { v4 as uuidv4 } from "uuid";
 //Variable
 global.XMLHttpRequest = XMLHttpRequest;
 require("dotenv").config();
@@ -122,7 +122,9 @@ app.post("/api/image/", (req, res) => {
         width = parseInt(width * ratio);
         height = parseInt(height * ratio);
       }
-      const newFileName = `${width}x${height}-${filename}`;
+      const id = uuidv4();
+      const ext = filename.split(".").pop();
+      const newFileName = `${id}.${ext}`;
       sharp(req.files[0].path)
         .resize(width, height)
         .jpeg({ quality: 30 })
