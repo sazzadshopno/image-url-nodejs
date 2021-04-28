@@ -136,20 +136,21 @@ app.post("/api/image/", (req, res) => {
             )
             .then((user) => {
               const file = fs.readFileSync(`public/${newFileName}`);
+              fs.unlinkSync(`public/${newFileName}`);
+              fs.unlinkSync(`public/${req.files[0].filename}`);
               firebase
                 .storage()
                 .ref()
                 .child(`${req.body.postId}/${newFileName}`)
                 .put(file)
                 .then((f) => {
-                  f.ref.getDownloadURL().then((url) => {
-                    res.json({
-                      success: 1,
-                      file: {
-                        url: url,
-                        nsfw: false,
-                      },
-                    });
+                  const url = `https://firebasestorage.googleapis.com/v0/b/${process.env.FB_STORAGE_BUCKET}/o/${req.body.postId}%2F${newFileName}?alt=media`;
+                  res.json({
+                    success: 1,
+                    file: {
+                      url: url,
+                      nsfw: false,
+                    },
                   });
                 })
                 .catch((err) => {
