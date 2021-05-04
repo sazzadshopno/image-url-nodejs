@@ -7,8 +7,9 @@ router.post("/", (req, res) => {
   og({ url })
     .then((data) => {
       const { error, result, response } = data;
+      console.log(error);
       if (error) {
-        res.json({ success: 0, error });
+        res.sendStatus(400).json({ success: 0, error });
       }
       res.json({
         success: 1,
@@ -22,7 +23,7 @@ router.post("/", (req, res) => {
       });
     })
     .catch((err) => {
-      res.json({ err });
+      res.sendStatus(400).json({ success: 0, err });
     });
 });
 
