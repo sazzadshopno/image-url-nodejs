@@ -104,3 +104,5 @@ dist
 
 # Public folder
 public/
+
+test.json
