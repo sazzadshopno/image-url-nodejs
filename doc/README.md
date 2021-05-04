@@ -1,5 +1,7 @@
 # Api Documentation
 
+Base Url : `https://dark-image-url.herokuapp.com/`
+
 ## Open Endpoints
 
 Open endpoints require no Authentication.
