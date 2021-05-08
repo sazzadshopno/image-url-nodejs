@@ -1,4 +1,4 @@
-# Meta
+# Create Blog
 
 Used to store a post in database.
 

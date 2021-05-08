@@ -1,4 +1,4 @@
-# Meta
+# Fetch Blog
 
 Used to get all the blogs available in database.
 

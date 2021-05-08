@@ -1,4 +1,4 @@
-# Meta
+# Image
 
 Used to put an image in firebase storage and provide download link in response.
 
